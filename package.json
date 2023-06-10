@@ -1,11 +1,11 @@
 {
-  "name": "@spacemonkey/openbook-crank",
+  "name": "@metaproph3t/openbook-mm",
   "version": "1.0.0",
-  "description": "Crank openbook markets",
-  "repository": "https://github.com/SpaceMonkeyForever/openbook-crank",
+  "description": "Make openbook markets",
+  "repository": "https://github.com/metaproph3t/openbook-mm",
   "author": {
-    "name": "spacemonkey",
-    "url": "https://twitter.com/RealSpaceMonkey"
+    "name": "metaproph3t",
+    "url": "https://metaproph3t.github.io"
   },
   "license": "MIT",
   "scripts": {
