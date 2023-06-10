@@ -12,7 +12,7 @@ import {
 } from '@solana/web3.js';
 import {getMultipleAccounts, loadMultipleOpenbookMarkets, sleep, chunk} from '../utils/utils';
 import BN from 'bn.js';
-import {decodeEventQueue, DexInstructions} from '@project-serum/serum';
+import {decodeEventQueue, DexInstructions} from '@openbook-dex/openbook';
 import {Logger} from 'tslog';
 import axios from "axios";
 
@@ -55,7 +55,7 @@ const serumProgramId = new PublicKey(
     ? 'srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX'
     : 'EoTcMgcDRTJVZDMZWBoU6rhYHZfkNTVEAfz3uUJRcYGj',
 );
-const walletFile = WALLET_PATH || os.homedir() + '/.config/solana/devnet.json';
+const walletFile = WALLET_PATH || os.homedir() + '/.config/solana/id.json';
 const payer = Keypair.fromSecretKey(
   Uint8Array.from(
     JSON.parse(
@@ -97,142 +97,142 @@ async function run() {
   // load selected markets
   let spotMarkets = await loadMultipleOpenbookMarkets(connection,serumProgramId,marketsList);
 
-  log.info("Cranking the following markets");
+  log.info("Making the following markets");
   marketsList.forEach(m => log.info(`${m.name}: ${m.address}`));
 
   const eventQueuePks = spotMarkets.map(
     (market) => market['_decoded'].eventQueue,
   );
 
-  //pass a minimum Context Slot to GMA
-  let minContextSlot = 0;
+  // //pass a minimum Context Slot to GMA
+  // let minContextSlot = 0;
 
-  // noinspection InfiniteLoopJS
-  while (true) {
-    try {
-      let crankInstructionsQueue: TransactionInstruction[] = [];
-      let instructionBumpMap = new Map();
+  // // noinspection InfiniteLoopJS
+  // while (true) {
+  //   try {
+  //     let crankInstructionsQueue: TransactionInstruction[] = [];
+  //     let instructionBumpMap = new Map();
 
-      const eventQueueAccts = await getMultipleAccounts(
-        connection,
-        eventQueuePks,
-        'processed',
-        minContextSlot,
-      );
+  //     const eventQueueAccts = await getMultipleAccounts(
+  //       connection,
+  //       eventQueuePks,
+  //       'processed',
+  //       minContextSlot,
+  //     );
 
-     //increase the minContextSlot to avoid processing the same slot twice
-     minContextSlot = eventQueueAccts[0].context.slot + 1;
+  //    //increase the minContextSlot to avoid processing the same slot twice
+  //    minContextSlot = eventQueueAccts[0].context.slot + 1;
 
-      for (let i = 0; i < eventQueueAccts.length; i++) {
-        const accountInfo = eventQueueAccts[i].accountInfo;
-        const events = decodeEventQueue(accountInfo.data);
+  //     for (let i = 0; i < eventQueueAccts.length; i++) {
+  //       const accountInfo = eventQueueAccts[i].accountInfo;
+  //       const events = decodeEventQueue(accountInfo.data);
 
-        if (events.length === 0) {
-          continue;
-        }
+  //       if (events.length === 0) {
+  //         continue;
+  //       }
 
-        const accounts: Set<string> = new Set();
-        for (const event of events) {
-          accounts.add(event.openOrders.toBase58());
+  //       const accounts: Set<string> = new Set();
+  //       for (const event of events) {
+  //         accounts.add(event.openOrders.toBase58());
 
-          // Limit unique accounts to first 10
-          if (accounts.size >= maxUniqueAccounts) {
-            break;
-          }
-        }
+  //         // Limit unique accounts to first 10
+  //         if (accounts.size >= maxUniqueAccounts) {
+  //           break;
+  //         }
+  //       }
 
-        const openOrdersAccounts = [...accounts]
-          .map((s) => new PublicKey(s))
-          .sort((a, b) => a.toBuffer().swap64().compare(b.toBuffer().swap64()));
+  //       const openOrdersAccounts = [...accounts]
+  //         .map((s) => new PublicKey(s))
+  //         .sort((a, b) => a.toBuffer().swap64().compare(b.toBuffer().swap64()));
 
-        //coinFee & pcFee are redundant for cranking. Instead, we pass spotMarkets[i]['_decoded'].eventQueue
-        //using duplicate accounts will reduce transaction size
-        const instr = DexInstructions.consumeEvents({
-          market: spotMarkets[i].publicKey,
-          eventQueue: spotMarkets[i]['_decoded'].eventQueue,
-          coinFee: spotMarkets[i]['_decoded'].eventQueue,
-          pcFee: spotMarkets[i]['_decoded'].eventQueue,
-          openOrdersAccounts,
-          limit: consumeEventsLimit,
-          programId: serumProgramId,
-        });
+  //       //coinFee & pcFee are redundant for cranking. Instead, we pass spotMarkets[i]['_decoded'].eventQueue
+  //       //using duplicate accounts will reduce transaction size
+  //       const instr = DexInstructions.consumeEvents({
+  //         market: spotMarkets[i].publicKey,
+  //         eventQueue: spotMarkets[i]['_decoded'].eventQueue,
+  //         coinFee: spotMarkets[i]['_decoded'].eventQueue,
+  //         pcFee: spotMarkets[i]['_decoded'].eventQueue,
+  //         openOrdersAccounts,
+  //         limit: consumeEventsLimit,
+  //         programId: serumProgramId,
+  //       });
 
-        crankInstructionsQueue.push(instr);
+  //       crankInstructionsQueue.push(instr);
 
-        //if the queue is large then add the priority fee
-        if(events.length > priorityQueueLimit){
-          instructionBumpMap.set(instr,1);
-        }
+  //       //if the queue is large then add the priority fee
+  //       if(events.length > priorityQueueLimit){
+  //         instructionBumpMap.set(instr,1);
+  //       }
 
-        //bump transaction fee if market address is included in PRIORITY_MARKETS env
-        if(priorityMarkets.includes(spotMarkets[i].publicKey.toString())){
-          instructionBumpMap.set(instr,1);
-        }
+  //       //bump transaction fee if market address is included in PRIORITY_MARKETS env
+  //       if(priorityMarkets.includes(spotMarkets[i].publicKey.toString())){
+  //         instructionBumpMap.set(instr,1);
+  //       }
 
-        log.info(`market ${spotMarkets[i].publicKey} creating consume events for ${events.length} events`);
+  //       log.info(`market ${spotMarkets[i].publicKey} creating consume events for ${events.length} events`);
 
-      }
+  //     }
 
-      //send the crank transaction if there are markets that need cranked
-      if(crankInstructionsQueue.length > 0){
+  //     //send the crank transaction if there are markets that need cranked
+  //     if(crankInstructionsQueue.length > 0){
 
-        //chunk the instructions to ensure transactions are not too large
-        let chunkedCrankInstructions = chunk(crankInstructionsQueue, maxTxInstructions);
+  //       //chunk the instructions to ensure transactions are not too large
+  //       let chunkedCrankInstructions = chunk(crankInstructionsQueue, maxTxInstructions);
 
-        chunkedCrankInstructions.forEach(function (transactionInstructions){
+  //       chunkedCrankInstructions.forEach(function (transactionInstructions){
 
-          let shouldBumpFee = false;
-          let crankTransaction = new Transaction({... recentBlockhash});
+  //         let shouldBumpFee = false;
+  //         let crankTransaction = new Transaction({... recentBlockhash});
 
-          crankTransaction.add(
-              ComputeBudgetProgram.setComputeUnitLimit({
-                units: (CuLimit * maxTxInstructions),
-              })
-          );
+  //         crankTransaction.add(
+  //             ComputeBudgetProgram.setComputeUnitLimit({
+  //               units: (CuLimit * maxTxInstructions),
+  //             })
+  //         );
 
-          transactionInstructions.forEach(function (crankInstruction) {
-            //check the instruction for flag to bump fee
-            instructionBumpMap.get(crankInstruction) ? shouldBumpFee = true : null;
-          });
+  //         transactionInstructions.forEach(function (crankInstruction) {
+  //           //check the instruction for flag to bump fee
+  //           instructionBumpMap.get(crankInstruction) ? shouldBumpFee = true : null;
+  //         });
 
-          if(shouldBumpFee || cuPrice){
-            crankTransaction.add(
-                ComputeBudgetProgram.setComputeUnitPrice({
-                  microLamports: shouldBumpFee ? priorityCuPrice : cuPrice,
-                })
-            );
-          }
+  //         if(shouldBumpFee || cuPrice){
+  //           crankTransaction.add(
+  //               ComputeBudgetProgram.setComputeUnitPrice({
+  //                 microLamports: shouldBumpFee ? priorityCuPrice : cuPrice,
+  //               })
+  //           );
+  //         }
 
-          crankTransaction.add(...transactionInstructions);
+  //         crankTransaction.add(...transactionInstructions);
 
-          crankTransaction.sign(payer);
+  //         crankTransaction.sign(payer);
 
-          //send the transaction
-          connection.sendRawTransaction(crankTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 2,
-          }).then(txId => log.info(`Cranked ${transactionInstructions.length} market(s): ${txId}`));
+  //         //send the transaction
+  //         connection.sendRawTransaction(crankTransaction.serialize(), {
+  //           skipPreflight: true,
+  //           maxRetries: 2,
+  //         }).then(txId => log.info(`Cranked ${transactionInstructions.length} market(s): ${txId}`));
 
-        })
+  //       })
 
-      }
+  //     }
 
-    } catch (e) {
-      if (e instanceof Error) {
+  //   } catch (e) {
+  //     if (e instanceof Error) {
 
-        switch (e.message){
-          case 'Minimum context slot has not been reached':
-            //lightweight warning message for known "safe" errors
-            log.warn(e.message);
-            break;
-          default:
-            log.error(e);
-        }
+  //       switch (e.message){
+  //         case 'Minimum context slot has not been reached':
+  //           //lightweight warning message for known "safe" errors
+  //           log.warn(e.message);
+  //           break;
+  //         default:
+  //           log.error(e);
+  //       }
 
-      }
-    }
-    await sleep(interval);
-  }
+  //     }
+  //   }
+  //   await sleep(interval);
+  // }
 }
 
 run();

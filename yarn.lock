@@ -70,6 +70,23 @@
   resolved "https://registry.yarnpkg.com/@noble/secp256k1/-/secp256k1-1.7.1.tgz#b251c70f824ce3ca7f8dc3df08d58f005cc0507c"
   integrity sha512-hOUk6AyBFmqVrv7k5WAw/LpszxVbj9gGN4JRkIX52fdFAj1UA61KXmZDvqVEm+pOyec3+fIeZB02LYa/pWOArw==
 
+"@openbook-dex/openbook@^0.0.8":
+  version "0.0.8"
+  resolved "https://registry.yarnpkg.com/@openbook-dex/openbook/-/openbook-0.0.8.tgz#4dc4a13673e749d649165c32c4cdb3901ed4adb7"
+  integrity sha512-HP3O5AI22YaEOHaW07ovRwzStM2XS1IYkI9MLIDr0fGlp/eBYn85RwgerzD7ewDBbaOoUvqO5vpLDWt0t83jsw==
+  dependencies:
+    "@openbook-dex/tokens" "0.0.7"
+    "@project-serum/anchor" "^0.11.1"
+    "@solana/spl-token" "^0.1.6"
+    "@solana/web3.js" "^1.70.0"
+    bn.js "^5.2.1"
+    buffer-layout "^1.2.0"
+
+"@openbook-dex/tokens@0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@openbook-dex/tokens/-/tokens-0.0.7.tgz#4452352391ab4e4a4067386e1fa00fbfbcfe49a3"
+  integrity sha512-erw3bOtQEBWCdQFMw3xPgmIFGVYEYwmPifLUsvxsakn6KB8/YtspaKZvT7AMmKmIz1yiNQhMGCSbK/e+rIKR4Q==
+
 "@project-serum/anchor@^0.11.1":
   version "0.11.1"
   resolved "https://registry.yarnpkg.com/@project-serum/anchor/-/anchor-0.11.1.tgz#155bff2c70652eafdcfd5559c81a83bb19cec9ff"
@@ -98,17 +115,6 @@
     bn.js "^5.1.2"
     buffer-layout "^1.2.0"
 
-"@project-serum/serum@^0.13.65":
-  version "0.13.65"
-  resolved "https://registry.yarnpkg.com/@project-serum/serum/-/serum-0.13.65.tgz#6d3cf07912f13985765237f053cca716fe84b0b0"
-  integrity sha512-BHRqsTqPSfFB5p+MgI2pjvMBAQtO8ibTK2fYY96boIFkCI3TTwXDt2gUmspeChKO2pqHr5aKevmexzAcXxrSRA==
-  dependencies:
-    "@project-serum/anchor" "^0.11.1"
-    "@solana/spl-token" "^0.1.6"
-    "@solana/web3.js" "^1.21.0"
-    bn.js "^5.1.2"
-    buffer-layout "^1.2.0"
-
 "@solana/buffer-layout@^4.0.0":
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/@solana/buffer-layout/-/buffer-layout-4.0.1.tgz#b996235eaec15b1e0b5092a8ed6028df77fa6c15"
@@ -128,7 +134,7 @@
     buffer-layout "^1.2.0"
     dotenv "10.0.0"
 
-"@solana/web3.js@1.43.5", "@solana/web3.js@^1.17.0", "@solana/web3.js@^1.21.0":
+"@solana/web3.js@1.43.5", "@solana/web3.js@^1.17.0", "@solana/web3.js@^1.21.0", "@solana/web3.js@^1.70.0":
   version "1.43.5"
   resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.43.5.tgz#ab12bb6ab3fff0a08e8c7453b4fc4cda9f66df11"
   integrity sha512-/PF4Fp+2jvCt9R3hYrf+tVUZXpPXZaHcwpaY/ytgdcswy8YiYf2snug52BJTCTlxwiXJipS4JpIo7rJJO0nN6w==
@@ -329,7 +335,7 @@ bindings@^1.3.0:
   dependencies:
     file-uri-to-path "1.0.0"
 
-bn.js@5.1.3, bn.js@^4.11.9, bn.js@^5.0.0, bn.js@^5.1.2, bn.js@^5.2.0:
+bn.js@5.1.3, bn.js@^4.11.9, bn.js@^5.0.0, bn.js@^5.1.2, bn.js@^5.2.0, bn.js@^5.2.1:
   version "5.1.3"
   resolved "https://registry.yarnpkg.com/bn.js/-/bn.js-5.1.3.tgz#beca005408f642ebebea80b042b4d18d2ac0ee6b"
   integrity sha512-GkTiFpjFtUzU9CbMeJ5iazkCzGL3jrhzerzZIuqLABjbwRaFt33I9tUdSNryIptM+RxDet6OKm2WnLXzW51KsQ==
