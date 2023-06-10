@@ -8,4 +8,4 @@ case "$1" in
         ;;
 esac
 
-npx ts-node src/scripts/crank.ts
+npx ts-node src/scripts/make.ts

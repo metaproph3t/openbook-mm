@@ -1,8 +1,6 @@
-# OpenBook crank script
+# OpenBook make script
 
-OpenBook needs to be cranked to process orderbook events.
-The initial code was taken from the same crank script for openbook in 
-mango-v3-client, so most credit goes to Mango team.
+A script you can use to make OpenBook markets, forked from [SpaceMonkeyForever/openbook-cranker](https://github.com/SpaceMonkeyForever/openbook-cranker)
 
 #### Install deps first:
 
@@ -15,13 +13,13 @@ yarn install
 make sure to create a JSON file containing the keypair formatted as a byte array e.g. [1,3,4...]
 
 ```
-ENDPOINT_URL=... WALLET_PATH=./path/to/wallet.json ./start-cranker.sh
+ENDPOINT_URL=... WALLET_PATH=./path/to/wallet.json ./start-maker.sh
 ```
 
 Or run with KEYPAIR directly:
 
 ```
-ENDPOINT_URL=... KEYPAIR=[1,3,4...] ./start-cranker.sh
+ENDPOINT_URL=... KEYPAIR=[1,3,4...] ./start-maker.sh
 ```
 
 to run in the background, pass "-d" or "--daemon"
@@ -62,7 +60,3 @@ to run in the background, pass "-d" or "--daemon"
                        // srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX.
 ```
 
-#### TODO:
-
-- Dynamic priority fee using getRecentPrioritizationFees
-- Dynamic frequency based on queue length
