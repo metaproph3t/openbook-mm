@@ -12,7 +12,7 @@ import {
 } from '@solana/web3.js';
 import {getMultipleAccounts, loadMultipleOpenbookMarkets, sleep, chunk} from '../utils/utils';
 import BN from 'bn.js';
-import {decodeEventQueue, DexInstructions} from '@openbook-dex/openbook';
+import {decodeEventQueue, DexInstructions, Market} from '@openbook-dex/openbook';
 import {Logger} from 'tslog';
 import axios from "axios";
 
@@ -41,7 +41,7 @@ const marketsFile = MARKETS_FILE || '../markets.json';
 const markets = require(marketsFile);
 
 const cluster = CLUSTER || 'mainnet';
-const interval = INTERVAL || 1000;
+const interval = INTERVAL || 2000;
 const maxUniqueAccounts = parseInt(MAX_UNIQUE_ACCOUNTS || '10');
 const consumeEventsLimit = new BN(CONSUME_EVENTS_LIMIT || '19');
 const priorityMarkets = PRIORITY_MARKETS ? PRIORITY_MARKETS.split(',') : [] ;
@@ -91,18 +91,34 @@ setInterval(async () => {
 },1000)
 
 async function run() {
-  // list of markets to crank
+  // list of markets to make
   let marketsList = markets[cluster];
 
-  // load selected markets
-  let spotMarkets = await loadMultipleOpenbookMarkets(connection,serumProgramId,marketsList);
-
   log.info("Making the following markets");
-  marketsList.forEach(m => log.info(`${m.name}: ${m.address}`));
+  for (let market of marketsList) {
+    market['proxy'] = await Market.load(connection, new PublicKey(market.address), {}, serumProgramId);
+    log.info(`${market.name}: ${market.address}`);
+  }
 
-  const eventQueuePks = spotMarkets.map(
-    (market) => market['_decoded'].eventQueue,
-  );
+  while (true) {
+    for (let market of marketsList) {
+      let marketProxy = market.proxy;
+
+      let bids = await marketProxy.loadBids(connection);
+      let asks = await marketProxy.loadAsks(connection);
+
+      // market price = average(highest bid, lowest ask)
+      // maybe susceptible to manipulation?
+
+      let [highestBidPrice] = bids.getL2(1)[0];
+      let [highestAskPrice] = asks.getL2(1)[0];
+
+      let marketPrice = (highestBidPrice + highestAskPrice) / 2;
+
+      console.log(`${market.name}: ${marketPrice}`);
+    }
+    await sleep(interval);
+  }
 
   // //pass a minimum Context Slot to GMA
   // let minContextSlot = 0;

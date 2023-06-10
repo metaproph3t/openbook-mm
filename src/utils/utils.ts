@@ -7,7 +7,7 @@ import {
 } from '@solana/web3.js';
 
 import * as fzstd from 'fzstd';
-import {Market} from "@project-serum/serum";
+import {Market} from "@openbook-dex/openbook";
 import * as buffer_layout from "buffer-layout";
 import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
