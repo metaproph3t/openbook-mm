@@ -30,7 +30,6 @@ const {
   PRIORITY_QUEUE_LIMIT, // queue length at which to apply the priority fee
   PRIORITY_CU_PRICE,    // extra microlamports per cu for high fee markets
   PRIORITY_CU_LIMIT,    // compute limit
-  POLL_MARKETS,         // optional for using Top markets
   MAX_TX_INSTRUCTIONS,  // max instructions per transaction
   CU_PRICE,             // extra microlamports per cu for any transaction
   PRIORITY_MARKETS,     // input to add comma seperated list of markets that force fee bump
@@ -93,30 +92,7 @@ setInterval(async () => {
 
 async function run() {
   // list of markets to crank
-  let marketsList;
-  let count = 0;
-  const TotalRetry = 3
-  if (POLL_MARKETS === 'true') {
-    while (count < TotalRetry) {
-      try {
-        log.info(`Fetching markets from OpenSerum API (attempt ${count + 1}). Volume threshold: ${VOLUME_THRESHOLD}`);
-        const { data } = await axios.get(
-          URL_MARKETS_BY_VOLUME + VOLUME_THRESHOLD,
-        );
-        marketsList = data;
-        break;
-      } catch (e) {
-        if (count > TotalRetry) {
-          log.error(e);
-          throw e;
-        } else {
-          count++;
-        }
-      }
-    }
-  } else {
-    marketsList = markets[cluster];
-  }
+  let marketsList = markets[cluster];
 
   // load selected markets
   let spotMarkets = await loadMultipleOpenbookMarkets(connection,serumProgramId,marketsList);

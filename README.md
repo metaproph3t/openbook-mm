@@ -49,10 +49,6 @@ to run in the background, pass "-d" or "--daemon"
                        // Default is 1.
   MAX_UNIQUE_ACCOUNTS  // Max number of unique accounts to process in each
                        // transaction. Default is 10.
-  POLL_MARKETS         // If true, ignore the local markets.json file and crank
-                       // the top markets, by volume, on openserum.com above a
-                       // minimum threshold of 1000 (hard-coded). Default is 
-                       // undefined (false).
   PRIORITY_CU_LIMIT    // Compute unit limit per instruction. Default is 50000.
   PRIORITY_CU_PRICE    // Additional micro lamports for PRIORITY_MARKETS & 
                        // PRIORITY_QUEUE_LIMIT. Default is 100000.
