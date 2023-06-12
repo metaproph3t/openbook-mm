@@ -1,6 +1,12 @@
 # OpenBook make script
 
-A script you can use to make OpenBook markets, forked from [SpaceMonkeyForever/openbook-cranker](https://github.com/SpaceMonkeyForever/openbook-cranker)
+A script you can use to make OpenBook markets, forked from [SpaceMonkeyForever/openbook-cranker](https://github.com/SpaceMonkeyForever/openbook-cranker).
+
+Performs the following:
+1. For the market listed in `src/markets.json`, gets the current market price by averaging the highest bid and the lowest ask
+2. Uses this market price to calculate the value of the market maker's position on each side. For example, if it is a SOL/USDC market and the market maker has 1000 USDC and 100 SOL and the price of SOL is 75 USDC, their position would be 57% USDC and 43% SOL.
+3. Places two orders on both sides of the market, with the strategy described here (TODO LINK)
+4. Every `INTERVAL` ms, determine new prices and determine total number of tokens owned on each side (one of the orders could have been filled), and replace the orders consistent with the price strategy
 
 #### Install deps first:
 

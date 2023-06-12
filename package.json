@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@openbook-dex/openbook": "^0.0.8",
-    "@solana/spl-token": "^0.1.6",
+    "@solana/spl-token": "^0.3.8",
     "@solana/web3.js": "^1.43.5",
     "axios": "^1.3.2",
     "bn.js": "^5.1.0",

@@ -2,6 +2,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import {
   Keypair,
+  Account,
   Commitment,
   Connection,
   PublicKey,
@@ -10,11 +11,12 @@ import {
   BlockhashWithExpiryBlockHeight,
   TransactionInstruction,
 } from '@solana/web3.js';
-import {getMultipleAccounts, loadMultipleOpenbookMarkets, sleep, chunk} from '../utils/utils';
+import {sleep} from '../utils/utils';
 import BN from 'bn.js';
 import {decodeEventQueue, DexInstructions, Market} from '@openbook-dex/openbook';
 import {Logger} from 'tslog';
 import axios from "axios";
+import * as token from '@solana/spl-token';
 
 const URL_MARKETS_BY_VOLUME = 'https://openserum.io/api/serum/markets.json?min24hVolume=';
 const VOLUME_THRESHOLD = 1000;
@@ -55,8 +57,8 @@ const serumProgramId = new PublicKey(
     ? 'srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX'
     : 'EoTcMgcDRTJVZDMZWBoU6rhYHZfkNTVEAfz3uUJRcYGj',
 );
-const walletFile = WALLET_PATH || os.homedir() + '/.config/solana/id.json';
-const payer = Keypair.fromSecretKey(
+const walletFile = WALLET_PATH || os.homedir() + '/.config/solana/dev.json';
+const maker = Keypair.fromSecretKey(
   Uint8Array.from(
     JSON.parse(
       KEYPAIR || fs.readFileSync(walletFile, 'utf-8'),
@@ -66,7 +68,7 @@ const payer = Keypair.fromSecretKey(
 
 const log: Logger = new Logger({name: "openbook-cranker", displayFunctionName: false, displayFilePath: "hidden", minLevel: "info"});
 
-log.info(payer.publicKey.toString());
+log.info(maker.publicKey.toString());
 
 const connection = new Connection(ENDPOINT_URL!, 'processed' as Commitment);
 
@@ -91,164 +93,120 @@ setInterval(async () => {
 },1000)
 
 async function run() {
+  let makerAccount = new Account(maker.secretKey);
   // list of markets to make
   let marketsList = markets[cluster];
 
-  log.info("Making the following markets");
-  for (let market of marketsList) {
-    market['proxy'] = await Market.load(connection, new PublicKey(market.address), {}, serumProgramId);
-    log.info(`${market.name}: ${market.address}`);
-  }
+  let marketData = marketsList[0];
+  const market = await Market.load(connection, new PublicKey(marketData.address), {}, serumProgramId);
+  log.info("Making the following market:");
+  log.info(`${marketData.name}: ${marketData.address}`);
+
+  const base = market.baseMintAddress;
+  const quote = market.quoteMintAddress; 
+
+  const baseAcc = await token.getAssociatedTokenAddress(base, maker.publicKey);
+  const quoteAcc = await token.getAssociatedTokenAddress(quote, maker.publicKey);
+
 
   while (true) {
-    for (let market of marketsList) {
-      let marketProxy = market.proxy;
+    let bids = await market.loadBids(connection);
+    let asks = await market.loadAsks(connection);
 
-      let bids = await marketProxy.loadBids(connection);
-      let asks = await marketProxy.loadAsks(connection);
+    // market price = average(highest bid, lowest ask)
+    // maybe susceptible to manipulation?
 
-      // market price = average(highest bid, lowest ask)
-      // maybe susceptible to manipulation?
+    let [highestBidPrice] = bids.getL2(1)[0];
+    let [highestAskPrice] = asks.getL2(1)[0];
 
-      let [highestBidPrice] = bids.getL2(1)[0];
-      let [highestAskPrice] = asks.getL2(1)[0];
+    let marketPrice = (highestBidPrice + highestAskPrice) / 2;
 
-      let marketPrice = (highestBidPrice + highestAskPrice) / 2;
+    console.log(`${marketData.name}: ${marketPrice}`);
 
-      console.log(`${market.name}: ${marketPrice}`);
-    }
+    // TODO: cancel any outstanding orders, then `settleFunds`
+
+    let baseBalance = (await token.getAccount(connection, baseAcc)).amount;
+    let quoteBalance = (await token.getAccount(connection, quoteAcc)).amount;
+
+    log.info(`base balance: ${baseBalance}`);
+    log.info(`quote balance: ${quoteBalance}`);
+
+    let topBidAmt = quoteBalance / BigInt(10);
+    let middleBidAmt = (quoteBalance * BigInt(25)) / BigInt(100);
+    let bottomBidAmt = (quoteBalance * BigInt(65)) / BigInt(100);
+
+    let bottomAskAmt = baseBalance / BigInt(10);
+    let middleAskAmt = (baseBalance * BigInt(25)) / BigInt(100);
+    let topAskAmt = (baseBalance * BigInt(65)) / BigInt(100);
+
+    // TODO: spread adjustment logic
+
+    let topBidPrice = marketPrice * 0.997
+    let middleBidPrice = marketPrice * 0.994
+    let bottomBidPrice = marketPrice * 0.991
+
+    let bottomAskPrice = marketPrice * 1.003
+    let middleAskPrice = marketPrice * 1.006
+    let topAskPrice = marketPrice * 1.009
+
+    // TODO: put these in instructions that are batched together in a single transaction
+
+    await market.placeOrder(connection, {
+      owner: makerAccount,
+      payer: maker.publicKey,
+      side: 'buy', // 'buy' or 'sell'
+      price: topBidPrice,
+      size: Number(topBidAmt),
+      orderType: 'limit', // 'limit', 'ioc', 'postOnly'
+    });
+
+    await market.placeOrder(connection, {
+      owner: makerAccount,
+      payer: maker.publicKey,
+      side: 'buy', // 'buy' or 'sell'
+      price: middleBidPrice,
+      size: Number(middleBidAmt),
+      orderType: 'limit', // 'limit', 'ioc', 'postOnly'
+    });
+
+    await market.placeOrder(connection, {
+      owner: makerAccount,
+      payer: maker.publicKey,
+      side: 'buy', // 'buy' or 'sell'
+      price: bottomBidPrice,
+      size: Number(bottomBidAmt),
+      orderType: 'limit', // 'limit', 'ioc', 'postOnly'
+    });
+
+    await market.placeOrder(connection, {
+      owner: makerAccount,
+      payer: maker.publicKey,
+      side: 'sell', // 'buy' or 'sell'
+      price: bottomAskPrice,
+      size: Number(bottomAskAmt),
+      orderType: 'limit', // 'limit', 'ioc', 'postOnly'
+    });
+
+    await market.placeOrder(connection, {
+      owner: makerAccount,
+      payer: maker.publicKey,
+      side: 'buy', // 'buy' or 'sell'
+      price: middleAskPrice,
+      size: Number(middleAskAmt),
+      orderType: 'limit', // 'limit', 'ioc', 'postOnly'
+    });
+
+    await market.placeOrder(connection, {
+      owner: makerAccount,
+      payer: maker.publicKey,
+      side: 'buy', // 'buy' or 'sell'
+      price: topAskPrice,
+      size: Number(topAskAmt),
+      orderType: 'limit', // 'limit', 'ioc', 'postOnly'
+    });
+
     await sleep(interval);
   }
-
-  // //pass a minimum Context Slot to GMA
-  // let minContextSlot = 0;
-
-  // // noinspection InfiniteLoopJS
-  // while (true) {
-  //   try {
-  //     let crankInstructionsQueue: TransactionInstruction[] = [];
-  //     let instructionBumpMap = new Map();
-
-  //     const eventQueueAccts = await getMultipleAccounts(
-  //       connection,
-  //       eventQueuePks,
-  //       'processed',
-  //       minContextSlot,
-  //     );
-
-  //    //increase the minContextSlot to avoid processing the same slot twice
-  //    minContextSlot = eventQueueAccts[0].context.slot + 1;
-
-  //     for (let i = 0; i < eventQueueAccts.length; i++) {
-  //       const accountInfo = eventQueueAccts[i].accountInfo;
-  //       const events = decodeEventQueue(accountInfo.data);
-
-  //       if (events.length === 0) {
-  //         continue;
-  //       }
-
-  //       const accounts: Set<string> = new Set();
-  //       for (const event of events) {
-  //         accounts.add(event.openOrders.toBase58());
-
-  //         // Limit unique accounts to first 10
-  //         if (accounts.size >= maxUniqueAccounts) {
-  //           break;
-  //         }
-  //       }
-
-  //       const openOrdersAccounts = [...accounts]
-  //         .map((s) => new PublicKey(s))
-  //         .sort((a, b) => a.toBuffer().swap64().compare(b.toBuffer().swap64()));
-
-  //       //coinFee & pcFee are redundant for cranking. Instead, we pass spotMarkets[i]['_decoded'].eventQueue
-  //       //using duplicate accounts will reduce transaction size
-  //       const instr = DexInstructions.consumeEvents({
-  //         market: spotMarkets[i].publicKey,
-  //         eventQueue: spotMarkets[i]['_decoded'].eventQueue,
-  //         coinFee: spotMarkets[i]['_decoded'].eventQueue,
-  //         pcFee: spotMarkets[i]['_decoded'].eventQueue,
-  //         openOrdersAccounts,
-  //         limit: consumeEventsLimit,
-  //         programId: serumProgramId,
-  //       });
-
-  //       crankInstructionsQueue.push(instr);
-
-  //       //if the queue is large then add the priority fee
-  //       if(events.length > priorityQueueLimit){
-  //         instructionBumpMap.set(instr,1);
-  //       }
-
-  //       //bump transaction fee if market address is included in PRIORITY_MARKETS env
-  //       if(priorityMarkets.includes(spotMarkets[i].publicKey.toString())){
-  //         instructionBumpMap.set(instr,1);
-  //       }
-
-  //       log.info(`market ${spotMarkets[i].publicKey} creating consume events for ${events.length} events`);
-
-  //     }
-
-  //     //send the crank transaction if there are markets that need cranked
-  //     if(crankInstructionsQueue.length > 0){
-
-  //       //chunk the instructions to ensure transactions are not too large
-  //       let chunkedCrankInstructions = chunk(crankInstructionsQueue, maxTxInstructions);
-
-  //       chunkedCrankInstructions.forEach(function (transactionInstructions){
-
-  //         let shouldBumpFee = false;
-  //         let crankTransaction = new Transaction({... recentBlockhash});
-
-  //         crankTransaction.add(
-  //             ComputeBudgetProgram.setComputeUnitLimit({
-  //               units: (CuLimit * maxTxInstructions),
-  //             })
-  //         );
-
-  //         transactionInstructions.forEach(function (crankInstruction) {
-  //           //check the instruction for flag to bump fee
-  //           instructionBumpMap.get(crankInstruction) ? shouldBumpFee = true : null;
-  //         });
-
-  //         if(shouldBumpFee || cuPrice){
-  //           crankTransaction.add(
-  //               ComputeBudgetProgram.setComputeUnitPrice({
-  //                 microLamports: shouldBumpFee ? priorityCuPrice : cuPrice,
-  //               })
-  //           );
-  //         }
-
-  //         crankTransaction.add(...transactionInstructions);
-
-  //         crankTransaction.sign(payer);
-
-  //         //send the transaction
-  //         connection.sendRawTransaction(crankTransaction.serialize(), {
-  //           skipPreflight: true,
-  //           maxRetries: 2,
-  //         }).then(txId => log.info(`Cranked ${transactionInstructions.length} market(s): ${txId}`));
-
-  //       })
-
-  //     }
-
-  //   } catch (e) {
-  //     if (e instanceof Error) {
-
-  //       switch (e.message){
-  //         case 'Minimum context slot has not been reached':
-  //           //lightweight warning message for known "safe" errors
-  //           log.warn(e.message);
-  //           break;
-  //         default:
-  //           log.error(e);
-  //       }
-
-  //     }
-  //   }
-  //   await sleep(interval);
-  // }
 }
 
 run();
